@@ -1,80 +1,147 @@
 name: Release (APK with tag)
 
 on:
-    push:
-        tags: ["v*"] # e.g., v1.0.0
+  push:
+    tags: ["v*"] # e.g., v1.0.0
 
 permissions:
-    contents: write
+  contents: write
 
 jobs:
-    build:
-        runs-on: macos-14
+  build:
+    runs-on: macos-14
 
-        # Map secrets to env first; use env.* in if: conditions
+    env:
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+      RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+      RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Sanity check Java/Gradle
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          ./gradlew -version
+
+      # Decode keystore ONLY if we actually have one
+      - name: Decode signing keystore (optional)
+        if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' }}
+        run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > signing.keystore
+
+      # Signed build path (keystore present)
+      - name: Build multiple releases (signed)
+        if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' }}
         env:
-            RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-            RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-            RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-            RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_STORE_FILE: ${{ github.workspace }}/signing.keystore
+          RELEASE_STORE_PASSWORD: ${{ env.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ env.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ env.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -e
+          TAG="${GITHUB_REF_NAME}"
+          mkdir -p dist
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+          echo "Using urls.txt to build multiple variants:"
+          cat urls.txt || (echo "urls.txt not found"; exit 1)
 
-            - name: Set up JDK 21
-              uses: actions/setup-java@v4
-              with:
-                  distribution: temurin
-                  java-version: 21
-                  cache: gradle
+          i=1
+          while IFS=';' read -r APP_NAME BASE_URL; do
+            # Skip empty or commented lines
+            if [ -z "$APP_NAME" ] || [[ "$APP_NAME" =~ ^# ]]; then
+              continue
+            fi
 
-            - name: Sanity check Java/Gradle
-              run: |
-                  echo "JAVA_HOME=$JAVA_HOME"
-                  java -version
-                  ./gradlew -version
+            echo "== Building signed variant #$i =="
+            echo "  APP_NAME = $APP_NAME"
+            echo "  BASE_URL = $BASE_URL"
 
-            # Decode keystore ONLY if we actually have one
-            - name: Decode signing keystore (optional)
-              if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' }}
-              run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > signing.keystore
+            ./gradlew --no-daemon :app:assembleRelease \
+              -PAPP_NAME="$APP_NAME" \
+              -PBASE_URL="$BASE_URL"
 
-            # Signed build path (requires env var above)
-            - name: Build release (signed)
-              if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' }}
-              env:
-                  RELEASE_STORE_FILE: ${{ github.workspace }}/signing.keystore
-                  RELEASE_STORE_PASSWORD: ${{ env.RELEASE_STORE_PASSWORD }}
-                  RELEASE_KEY_ALIAS: ${{ env.RELEASE_KEY_ALIAS }}
-                  RELEASE_KEY_PASSWORD: ${{ env.RELEASE_KEY_PASSWORD }}
-              run: ./gradlew --no-daemon clean :app:assembleRelease
+            OUTDIR="app/build/outputs/apk/release"
+            SRC="${OUTDIR}/app-release.apk"
 
-            # Unsigned build path (no secrets present)
-            - name: Build release (unsigned)
-              if: ${{ env.RELEASE_KEYSTORE_BASE64 == '' }}
-              run: ./gradlew --no-daemon clean :app:assembleRelease
+            if [ ! -f "$SRC" ]; then
+              echo "Signed APK not found at $SRC"
+              ls -al "$OUTDIR" || true
+              exit 1
+            fi
 
-            - name: Prepare artifact with tag
-              id: prep
-              run: |
-                  set -e
-                  TAG="${GITHUB_REF_NAME}"
-                  OUTDIR="app/build/outputs/apk/release"
-                  SIGNED="${OUTDIR}/app-release.apk"
-                  UNSIGNED="${OUTDIR}/app-release-unsigned.apk"
+            # slugify app name: "Client One" -> "client-one"
+            SAFE_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9_-')
+            [ -z "$SAFE_NAME" ] && SAFE_NAME="client${i}"
 
-                  mkdir -p dist
-                  if [ -f "$SIGNED" ]; then SRC="$SIGNED";
-                  elif [ -f "$UNSIGNED" ]; then SRC="$UNSIGNED";
-                  else echo "No release APK found in $OUTDIR"; ls -al "$OUTDIR" || true; exit 1; fi
+            DEST="dist/chrome_opener-${TAG}-${SAFE_NAME}.apk"
+            cp "$SRC" "$DEST"
+            echo "  -> $DEST"
 
-                  DEST="dist/chrome_opener-${TAG}.apk"
-                  cp "$SRC" "$DEST"
-                  echo "apk_path=$DEST" >> "$GITHUB_OUTPUT"
+            i=$((i + 1))
+          done < urls.txt
 
-            - name: Create/Update GitHub Release
-              uses: softprops/action-gh-release@v2
-              with:
-                  files: ${{ steps.prep.outputs.apk_path }}
-                  generate_release_notes: true
+      # Unsigned build path (no keystore)
+      - name: Build multiple releases (unsigned)
+        if: ${{ env.RELEASE_KEYSTORE_BASE64 == '' }}
+        run: |
+          set -e
+          TAG="${GITHUB_REF_NAME}"
+          mkdir -p dist
+
+          echo "Using urls.txt to build multiple variants:"
+          cat urls.txt || (echo "urls.txt not found"; exit 1)
+
+          i=1
+          while IFS=';' read -r APP_NAME BASE_URL; do
+            # Skip empty or commented lines
+            if [ -z "$APP_NAME" ] || [[ "$APP_NAME" =~ ^# ]]; then
+              continue
+            fi
+
+            echo "== Building unsigned variant #$i =="
+            echo "  APP_NAME = $APP_NAME"
+            echo "  BASE_URL = $BASE_URL"
+
+            ./gradlew --no-daemon :app:assembleRelease \
+              -PAPP_NAME="$APP_NAME" \
+              -PBASE_URL="$BASE_URL"
+
+            OUTDIR="app/build/outputs/apk/release"
+            # adjust this if your unsigned file name is different
+            SRC="${OUTDIR}/app-release-unsigned.apk"
+            if [ ! -f "$SRC" ]; then
+              # fallback: maybe it's just app-release.apk
+              if [ -f "${OUTDIR}/app-release.apk" ]; then
+                SRC="${OUTDIR}/app-release.apk"
+              else
+                echo "No release APK found in $OUTDIR"
+                ls -al "$OUTDIR" || true
+                exit 1
+              fi
+            fi
+
+            SAFE_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9_-')
+            [ -z "$SAFE_NAME" ] && SAFE_NAME="client${i}"
+
+            DEST="dist/chrome_opener-${TAG}-${SAFE_NAME}.apk"
+            cp "$SRC" "$DEST"
+            echo "  -> $DEST"
+
+            i=$((i + 1))
+          done < urls.txt
+
+      - name: Create/Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.apk
+          generate_release_notes: true

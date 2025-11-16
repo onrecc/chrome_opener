@@ -11,8 +11,10 @@ android {
         applicationId = "fi.example.mieli.chrome"
         minSdk = 34
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.2"
+        versionCode = 3
+        versionName = "1.0.3"
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
+        resValue("string", "app_name", appName)
     }
 
     compileOptions {
@@ -50,3 +52,7 @@ dependencies {
 kotlin {
     jvmToolchain(21)
 }
+
+val baseUrl: String = project.findProperty("BASE_URL") as String? ?: "https://mieli.fi"
+
+val appName: String = project.findProperty("APP_NAME") as String? ?: "Mieli (Chrome)"

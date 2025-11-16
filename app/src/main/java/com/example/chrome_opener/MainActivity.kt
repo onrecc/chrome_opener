@@ -9,7 +9,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val url = "https://mieli.fi/"
+        val url = BuildConfig.BASE_URL
 
         val chrome = Intent(Intent.ACTION_VIEW, url.toUri()).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
