@@ -56,9 +56,13 @@ jobs:
           cat urls.txt || (echo "urls.txt not found"; exit 1)
 
           i=1
-          while IFS=';' read -r APP_NAME BASE_URL; do
-            # Skip empty or commented lines
-            if [ -z "$APP_NAME" ] || [[ "$APP_NAME" =~ ^# ]]; then
+          while IFS=';' read -r APP_NAME BASE_URL || [ -n "$APP_NAME" ]; do
+            # Normalize line endings and trim whitespace
+            APP_NAME=$(echo "$APP_NAME" | sed -e 's/\r$//' -e 's/^ *//' -e 's/ *$//')
+            BASE_URL=$(echo "$BASE_URL" | sed -e 's/\r$//' -e 's/^ *//' -e 's/ *$//')
+
+            # Skip empty or commented lines; require both fields
+            if [ -z "$APP_NAME" ] || [ -z "$BASE_URL" ] || [[ "$APP_NAME" =~ ^# ]]; then
               continue
             fi
 
@@ -66,7 +70,8 @@ jobs:
             echo "  APP_NAME = $APP_NAME"
             echo "  BASE_URL = $BASE_URL"
 
-            ./gradlew --no-daemon :app:assembleRelease \
+            # Force tasks to run so APK reflects the per-line inputs
+            ./gradlew --no-daemon --rerun-tasks :app:assembleRelease \
               -PAPP_NAME="$APP_NAME" \
               -PBASE_URL="$BASE_URL"
 
@@ -102,9 +107,13 @@ jobs:
           cat urls.txt || (echo "urls.txt not found"; exit 1)
 
           i=1
-          while IFS=';' read -r APP_NAME BASE_URL; do
-            # Skip empty or commented lines
-            if [ -z "$APP_NAME" ] || [[ "$APP_NAME" =~ ^# ]]; then
+          while IFS=';' read -r APP_NAME BASE_URL || [ -n "$APP_NAME" ]; do
+            # Normalize line endings and trim whitespace
+            APP_NAME=$(echo "$APP_NAME" | sed -e 's/\r$//' -e 's/^ *//' -e 's/ *$//')
+            BASE_URL=$(echo "$BASE_URL" | sed -e 's/\r$//' -e 's/^ *//' -e 's/ *$//')
+
+            # Skip empty or commented lines; require both fields
+            if [ -z "$APP_NAME" ] || [ -z "$BASE_URL" ] || [[ "$APP_NAME" =~ ^# ]]; then
               continue
             fi
 
@@ -112,7 +121,8 @@ jobs:
             echo "  APP_NAME = $APP_NAME"
             echo "  BASE_URL = $BASE_URL"
 
-            ./gradlew --no-daemon :app:assembleRelease \
+            # Force tasks to run so APK reflects the per-line inputs
+            ./gradlew --no-daemon --rerun-tasks :app:assembleRelease \
               -PAPP_NAME="$APP_NAME" \
               -PBASE_URL="$BASE_URL"
 
