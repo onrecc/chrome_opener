@@ -1,12 +1,10 @@
-package com.example.chrome_opener
+package fi.example.mieli.chrome
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.net.toUri
-// Import the generated BuildConfig from the namespace package.
-import fi.example.mieli.chrome.BuildConfig
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,0 +1,8 @@
+Ahdistuneisuuskysely;https://www.mielenterveystalo.fi/fi/oirekyselyt/ahdistuneisuuskysely-gad-7
+Audit miehet;https://www.mielenterveystalo.fi/fi/oirekyselyt/alkoholinkayton-riskien-kysely-audit-miehet 
+Audit naiset;https://www.mielenterveystalo.fi/fi/oirekyselyt/alkoholinkayton-riskien-kysely-audit-naiset
+Huumeiden käyttökysely;https://www.mielenterveystalo.fi/fi/oirekyselyt/huumeiden-kayton-kysely-dudit
+Lyhyt masennuskysely;https://www.mielenterveystalo.fi/fi/oirekyselyt/lyhyt-masennuskysely-phq-9
+Paniikkioirekysely;https://www.mielenterveystalo.fi/fi/oirekyselyt/paniikkioirekysely-pdss-sr
+MMSE;https://docs.google.com/forms/d/e/1FAIpQLSf193P35J9r9d1-FcvFpTQ4xlqoQmh3bOR1QHElPiIOywtOmg/viewform?usp=sharing&ouid=107063867112010133400
+Kuulotesti;https://kuulotekniikka.com/kuulokojeet/kuulotesti/
