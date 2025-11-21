@@ -6,16 +6,27 @@ plugins {
 val baseUrl: String = (project.findProperty("BASE_URL") as String?) ?: "https://mieli.fi"
 val appName: String = (project.findProperty("APP_NAME") as String?) ?: "Mieli (Chrome)"
 
+val domainSuffix = baseUrl
+    .removePrefix("https://")
+    .removePrefix("http://")
+    .substringBefore("/")
+    .replace(".", "")
+    .replace("-", "")
+    .lowercase()
+
+val basePackage = "fi.example.mieli.chrome"
+val fullPackage = "$basePackage.$domainSuffix"
+
 android {
     namespace = "fi.example.mieli.chrome"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "fi.example.mieli.chrome"
+        applicationId = fullPackage
         minSdk = 34
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.3"
+        versionCode = 4
+        versionName = "1.0.4"
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         resValue("string", "app_name", appName)
     }
